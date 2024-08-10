@@ -3,7 +3,14 @@ import openai
 import os
 
 # Set up OpenAI API key
-openai.api_key = os.getenv("OPENAI_API_KEY")  # Make sure to set this in your Streamlit environment
+openai.api_key = st.secrets["mykey"]
+
+def load_data():
+    df = pd.read_csv('/path/to/your/qa_dataset_with_embeddings.csv')
+    df['Question_Embedding'] = df['Question_Embedding'].apply(lambda x: np.fromstring(x.strip("[]"), sep=','))
+    return df
+
+data = load_data()
 
 st.title("Heart, Lung, and Blood Health Q&A")
 
@@ -12,7 +19,7 @@ user_question = st.text_input("Enter your question:")
 
 def get_openai_answer(question):
     response = openai.Completion.create(
-        engine="text-davinci-003",  # You can use a different engine if preferred
+        engine="text-davinci-003",
         prompt=question,
         max_tokens=150
     )
