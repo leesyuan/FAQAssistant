@@ -1,52 +1,65 @@
-import openai
+import streamlit as st
 import pandas as pd
 import numpy as np
-import streamlit as st
+from sentence_transformers import SentenceTransformer
 from sklearn.metrics.pairwise import cosine_similarity
 
-openai.api_key = st.secrets["mykey"]
-
-def generate_embedding(text):
-  response = openai.Embedding.create(
-    input=[text],
-    model="text-embedding-ada-002"
-  )
-  return response['data'][0]['embedding'] 
-
-
 # Load the dataset
-df = pd.read_csv("qa_dataset_with_embeddings.csv")
+@st.cache_resource
+def load_data():
+    df = pd.read_csv('qa_dataset_with_embeddings.csv')
+    # Convert the 'Question_Embedding' column from strings to numpy arrays
+    df['Question_Embedding'] = df['Question_Embedding'].apply(lambda x: np.fromstring(x.strip("[]"), sep=','))
+    return df
 
-def generate_answer(user_question):
-  # Generate embedding for user question
-  user_embedding = generate_embedding(user_question)
+data = load_data()
 
-  # Convert question embeddings to NumPy array
-  question_embeddings = np.array(df['Question_Embedding'].tolist())
+# Load the embedding model
+@st.cache_resource
+def load_embedding_model():
+    model = SentenceTransformer('paraphrase-MiniLM-L6-v2')
+    return model
 
-  # Calculate cosine similarity
-  similarities = cosine_similarity(np.array(user_embedding).reshape(1, -1), question_embeddings)
+model = load_embedding_model()
 
-  # Find the most similar question
-  most_similar_index = np.argmax(similarities)
-  similarity_score = similarities[0][most_similar_index]
+st.title("Heart, Lung, and Blood Health Q&A")
 
-  # Set a similarity threshold (you can adjust this)
-  threshold = 0.7
+# User question input
+user_question = st.text_input("Enter your question:")
 
-  if similarity_score > threshold:
-    answer = df['Answer'][most_similar_index]
-    return answer
-  else:
-    return "I apologize, but I don't have information on that topic yet. Could you please ask other questions?"
+# Button to trigger the answer search
+if st.button('Get Answer'):
+    if user_question:
+        # To be implemented: Question answering logic
+        pass
+    else:
+        st.write("Please enter a question.")
 
-def main():
-  st.title("Health Question Answering")
+def find_best_answer(user_question, data, model):
+    # Generate the embedding for the user's question
+    user_question_embedding = model.encode([user_question])[0]
 
-  user_question = st.text_input("Ask your health question")
-  if st.button("Submit"):
-    answer = generate_answer(user_question)
-    st.text_area("Answer:", value=answer)
+    # Calculate the cosine similarity between user_question_embedding and all question embeddings in the dataset
+    similarities = cosine_similarity([user_question_embedding], data['Question_Embedding'].tolist())[0]
 
-if __name__ == "__main__":
-  main()
+    # Find the index of the highest similarity score
+    best_match_idx = np.argmax(similarities)
+    best_match_score = similarities[best_match_idx]
+
+    # Define a similarity threshold (this value can be adjusted)
+    similarity_threshold = 0.7
+
+    if best_match_score >= similarity_threshold:
+        # Return the answer corresponding to the best match
+        return data['Answer'].iloc[best_match_idx], best_match_score
+    else:
+        # Return a message indicating no relevant answer was found
+        return "I apologize, but I don't have information on that topic yet. Could you please ask other questions?", best_match_score
+
+# Implement the Question Answering Logic
+if st.button('Get Answer'):
+    if user_question:
+        answer, score = find_best_answer(user_question, data, model)
+        st.write(f"Answer: {answer} (Similarity Score: {score:.2f})")
+    else:
+        st.write("Please enter a question.")
