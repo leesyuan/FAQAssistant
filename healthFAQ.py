@@ -6,7 +6,7 @@ import os
 openai.api_key = st.secrets["mykey"]
 
 def load_data():
-    df = pd.read_csv('/path/to/your/qa_dataset_with_embeddings.csv')
+    df = pd.read_csv('qa_dataset_with_embeddings.csv')
     df['Question_Embedding'] = df['Question_Embedding'].apply(lambda x: np.fromstring(x.strip("[]"), sep=','))
     return df
 
